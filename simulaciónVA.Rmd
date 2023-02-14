@@ -1,0 +1,219 @@
+---
+title: "Tarea 2"
+author: "Roberto Del Rio"
+date: '2023-02-05'
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages('vsgoftest')
+library('vsgoftest')
+#install.packages('arm')
+library('arm')
+library(dplyr)
+```
+
+## Tarea 2
+
+## Pregunta 1
+
+1.  Se dice que una v.a. sigue una distn doble exponencial de parámetro
+    λ \> 0 (también llamada distn Laplace de parámetro λ \> 0) si su
+    densidad está dada
+    por$$f(x)=\dfrac{\lambda}{2}e^{-\lambda|x|}, x\in\mathbb{R}$$
+
+```{=html}
+<!-- -->
+```
+(a) Escriba la función de distn y la fn de distn inversa. Pasar de
+    GoodNotes
+(b) Escriba un pseudo código que utilice la fn de distn inversa para
+    simular de la distn doble exponencial para cualquier valor de λ \>
+    0.
+
+```{r}
+F_inv<-function(u,lambda){
+  if(u<.5){
+    return((log(2*u))/lambda)
+  }
+  else if(u>=0.5){
+    return(-(log(2*(1-u)))/lambda)
+  }
+}
+```
+
+(c) Tomando como base el pseudocódigo anterior, escriba una fn en R
+    llamada r_doble_exp(n,lambda) que produzca números
+    (pseudo)aleatorios de la distn doble exponencial.
+
+```{r}
+r_doble_exp <- function(n,lambda){
+  u <- runif(n)
+  x <- sapply(u, function(i) (F_inv(i,lambda)))
+  return(x)
+}
+
+
+```
+
+(d) Usando la fn creada en el inciso anterior y para lambda=0.2,
+    compruebe grácamente que la densidad estimada (usando una muestra de
+    tamaño n=10,000) es similar a la densidad teórica.
+
+```{r}
+x1 <- r_doble_exp(10000,0.2)
+hist(x1, prob=TRUE,ylim = c(0, .12))
+s<-seq(min(x1),max(x1),0.01)
+lines(s,dlaplace(s,0,(1/.2)), col="blue")
+lines(density(x1),col="red")
+```
+
+(e)Tomando como base el siguiente pseudo código, escriba una fn en R
+llamada r_doble_exp_v2(n,lambda). [Nuevamente la función debe recibir un
+entero n que denota el número de valores a simular, así como el
+parámetro lambda.]
+
+```{r}
+
+r_doble_exp_v2 <- function(n,lambda){
+  u <- runif(n)
+  x <- rexp(n,lambda)
+  for (i in 1:n){
+    if (u[i]>.5){
+      x[i] <- -x[i]
+    }
+  }
+  return(x)
+}
+```
+
+(f)Usando la fn creada en el inciso anterior y para lambda=0.2, comprueb
+e grácamente que la densidad estimada (usando una muestra de tamaño
+n=10,000) es similar a la densidad teórica de una doble exponencial.
+
+```{r}
+x2 <- r_doble_exp_v2(10000,0.2)
+hist(x2, prob=TRUE,ylim = c(0, .12))
+s<-seq(min(x2),max(x2),0.01)
+lines(s,dlaplace(s,0,(1/.2)), col="blue")
+lines(density(x2),col="red")
+```
+
+(g) Demuestre analíticamente que el Algoritmo 1 devuelve efectivamente
+    el valor de una v.a. doble exp o- nencial de parámetro λ. HINT:
+    Obtenga la fn de distn de la v.a. X devuelta por el algoritmo y
+    observe si es la misma que la doble exponencial. Una forma de
+    hacerlo es usar probabilidad total, esto es P[X ≤x] = Z1 0 P[X ≤x\|U
+    = u]fU(u)du, y notando que cuando U ∈(0,1/2) se tiene que X = Y y
+    que cuando U ∈(1/2,1) se tiene que X = −Y .
+
+## Pregunta 2
+
+(a)Adapte el código del Algoritmo 5 visto en clase para crear una fn en
+R llamada r_poisson(n,lambda) que produzca números (pseudo)aleatorios
+de la distn Poi(λ). [Note que la función debe recibir un entero n que
+denota el número de valores a simular, así como el parámetro lambda.]
+```{r}
+r_poisson <- function(n,lambda){
+  u <- runif(n)
+  x <- 1:n
+  for (i in 1:n){
+    j <- 0
+    p_i <- dpois(j,lambda)
+    sum_pi <- p_i
+    while (u[i]>sum_pi){
+      j <- j+1
+      p_i <- dpois(j,lambda)
+      sum_pi <- sum_pi + p_i
+    }
+    x[i] <- j
+  }
+  return(x)
+}
+
+```
+
+(b) Usando la fn creada en el inciso anterior y para lambda=10, compruebe gráficamente que la densidad estimada (usando una muestra de tamaño n=10,000) es similar a la densidad teórica.
+
+```{r}
+x3 <- r_poisson(10000,10)
+discrete.histogram(x3,ylim = c(0, .15))
+s<-seq(min(x3),max(x3),1)
+points(s,dpois(s,10), col="blue")
+```
+(c) Sea X ∼ Poi(λ), utilice la aproximación Normal (vista en clase) para encontrar el valor de a tal que P[X ∈[λ −a,λ + a]] ≥0.999.
+
+(d) Tomando como base el Algoritmo 6 visto en clase, use lo encontrado en el inciso anterior para escribir una fn en R llamada r_poisson_v2(n,lambda) que genere de forma más eficiente números
+(pseudo)aleatorios de la distn Poi(λ).
+[Como se platicó en clase, será necesario ordenar una matriz de valores y probabilidades una sola vez.]
+```{r}
+r_poisson_v2 <- function(n,lambda){
+  u <- runif(n)
+  max <-ceiling(3.29057*sqrt(lambda))
+  aux <- 0:(max+lambda)
+  p <- dpois(aux,lambda) 
+  df <- data.frame(aux,p) 
+  df <- df %>% arrange(desc(p))
+  x <- 1:n
+  for (i in 1:n){
+    j <- 1
+    p_i <- df$p[j]
+    sum_pi <- p_i
+    while (u[i]>sum_pi){
+      #aux2 <- df$aux[j]
+      j <- j+1
+      if (j<=nrow(df)){
+        p_i <- df$p[j]
+        sum_pi <- sum_pi + p_i
+      }
+      else{
+        sum_pi <- 1
+      }
+    }
+    if (j<=nrow(df)){
+      x[i] <- df$aux[j]
+    }
+    else{
+      j <- 0
+      p_i <- dpois(j,lambda)
+      sum_pi <- p_i
+      while (u[i]>sum_pi){
+        j <- j+1
+        p_i <- dpois(j,lambda)
+        sum_pi <- sum_pi + p_i
+      }
+      x[i] <- j
+    }
+    #x[i] <- aux2
+    #x[i] <- df$aux[j]
+  }
+  return(x)
+}
+
+```
+(e) Usando la fn creada en el inciso anterior y para lambda=10, compruebe gráficamente que la densidad estimada (usando una muestra de tamaño n=10,000) es similar a la densidad teórica.
+[Seguramente será necesario modificar la fn del inciso anterior para considerar el remoto caso que el valor a simular resulte estar fuera del intervalo encontrado en (c).]
+```{r}
+x4 <- r_poisson_v2(10000,10)
+discrete.histogram(x4,ylim = c(0, .15))
+s<-seq(0,ceiling(3.29057*sqrt(10)+10),1)
+points(s,dpois(s,10), col="blue")
+
+```
+
+(f ) Pruebe numéricamente que la fn r_poisson_v2 es efectivamente más rápida que la fn r_poisson al
+generar n=1,000 valores de la distn Poisson de parámetro lambda=10,000.
+HINT: Recuerde que puede usar system.time para medir el tiempo de procesamiento en R.
+```{r}
+n=1000
+system.time({
+  temp<-t(r_poisson_v2(n,10000))
+})
+system.time({
+  temp<-t(r_poisson(n,10000))
+})
+```
